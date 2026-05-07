@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-securisee-deployment
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-securisee
+  template:
+    metadata:
+      labels:
+        app: app-securisee
+    spec:
+      containers:
+      - name: app-securisee
+        image: votre-harbor.com/mon-projet/app-securisee:latest # Ce tag sera écrasé par la CI
+        ports:
+        - containerPort: 8080

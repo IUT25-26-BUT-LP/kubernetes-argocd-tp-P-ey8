@@ -1,0 +1,56 @@
+name: Défi 4 - Build, Scan (Trivy) & Push
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app-securisee/app/**'
+
+env:
+  REGISTRY: "votre-harbor.com" # Remplacez par l'URL de votre registry Harbor ou Docker
+  IMAGE_NAME: "mon-projet/app-securisee"
+
+jobs:
+  build-scan-and-push:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v3
+
+      - name: Build de l'image Docker
+        run: |
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} ./app-securisee/app
+
+      # ÉTAPE CLÉ DU DÉFI 4 : Analyse de vulnérabilités avec Trivy
+      # Le paramètre exit-code: '1' agit comme l'autorisation binaire en bloquant le pipeline
+      - name: Scan des vulnérabilités avec Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1' 
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Login au Registre Docker/Harbor
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Push de l'image sécurisée
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      # Mise à jour du manifeste Kubernetes pour déclencher ArgoCD
+      - name: Update image tag in K8s deployment
+        run: |
+          sed -i "s|image: .*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g" app-securisee/k8s/deployment.yaml
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add app-securisee/k8s/deployment.yaml
+          git commit -m "Update image to ${{ github.sha }} after successful security scan"
+          git push
