@@ -8,7 +8,7 @@ on:
       - 'app-securisee/app/**'
 
 env:
-  REGISTRY: "votre-harbor.com" # Remplacez par l'URL de votre registry Harbor ou Docker
+  REGISTRY: "10.6.0.228"
   IMAGE_NAME: "mon-projet/app-securisee"
 
 jobs:
